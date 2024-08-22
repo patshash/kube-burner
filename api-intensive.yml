@@ -1,0 +1,57 @@
+---
+global:
+  measurements:
+    - name: podLatency
+# Reference: https://kube-burner.github.io/kube-burner/latest/reference/configuration/?h=churn#jobs
+# Create 50 pods, and add more in increments of 5. 
+# "Churn" 50 percent of the created namespaces, deleting and re-creating a random 50% of the namespaces, 
+# wait 10 seconds before re-creating and move on. Do this 5 times.
+jobs:
+  - name: api-intensive
+    jobIterations: 50
+    qps: 5
+    burst: 5
+    namespacedIterations: true
+    namespace: api-intensive
+    podWait: false
+    cleanup: true
+    waitWhenFinished: false
+    churn: true
+    churnPercent: 50
+    churnDelay: 3s
+    churnDuration: 10s
+    churnCycles: 5
+    objects:
+      - objectTemplate: templates/deployment.yml
+        replicas: 1
+      - objectTemplate: templates/service.yml
+        replicas: 1
+
+  - name: api-intensive-remove
+    qps: 2
+    burst: 2
+    jobType: delete
+    waitForDeletion: true
+    objects:
+      - kind: Deployment
+        labelSelector: {kube-burner-job: api-intensive}
+        apiVersion: apps/v1
+
+  - name: ensure-pods-removal
+    qps: 10
+    burst: 10
+    jobType: delete
+    waitForDeletion: true
+    objects:
+      - kind: Pod
+        labelSelector: {kube-burner-job: api-intensive}
+
+  - name: remove-services
+    qps: 2
+    burst: 2
+    jobType: delete
+    waitForDeletion: true
+    objects:
+      - kind: Service
+        labelSelector: {kube-burner-job: api-intensive}
+
